@@ -1,19 +1,19 @@
-class TodoMedel {
+import 'package:hive/hive.dart';
+
+part "todo_model.g.dart";
+
+@HiveType(typeId: 1)
+class TodoModel {
+  @HiveField(0)
   final String todoItem;
-  final bool isDone;
+  @HiveField(1)
+  bool isDone;
+  @HiveField(2)
   final DateTime time;
 
-  TodoMedel({
+  TodoModel({
     required this.todoItem,
     required this.isDone,
     required this.time,
   });
-
-  toMap() {
-    return {
-      "todo_item": todoItem,
-      "is_done": isDone,
-      "time": time,
-    };
-  }
 }

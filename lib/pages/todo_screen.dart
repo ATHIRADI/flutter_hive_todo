@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:todo_list/data/todo_list.dart';
+import 'package:hive_flutter/adapters.dart';
 import 'package:todo_list/models/todo_model.dart';
+import 'package:todo_list/services/todo_services.dart';
 
 class TodoScreen extends StatefulWidget {
   const TodoScreen({super.key});
@@ -25,7 +26,17 @@ class _TodoScreenState extends State<TodoScreen> {
         title: const Text("Todo List"),
       ),
       body: SafeArea(
-        child: _showingList(),
+        child: FutureBuilder(
+          future: TodoServices().allTodos(),
+          builder:
+              (BuildContext context, AsyncSnapshot<List<TodoModel>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return _showingList();
+            } else {
+              return const CircularProgressIndicator();
+            }
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -37,32 +48,45 @@ class _TodoScreenState extends State<TodoScreen> {
   }
 
   Widget _showingList() {
-    return ListView.builder(
-      itemCount: todos.length,
-      itemBuilder: (context, index) {
-        return ListTile(
-          title: Text(todos[index]["todo_item"].toString(),
-              style: todos[index]["is_done"] == true
-                  ? const TextStyle(decoration: TextDecoration.lineThrough)
-                  : const TextStyle(fontWeight: FontWeight.bold)),
-          leading: Checkbox(
-            value: todos[index]["is_done"],
-            onChanged: (value) {
-              setState(
-                () {
-                  todos[index]["is_done"] = !todos[index]["is_done"];
-                },
-              );
-            },
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () {
-              setState(() {
-                todos.remove(todos[index]);
-              });
-            },
-          ),
+    return ValueListenableBuilder(
+      valueListenable: Hive.box<TodoModel>('todoBox').listenable(),
+      builder: (context, Box<TodoModel> box, _) {
+        return ListView.separated(
+          itemCount: box.length,
+          itemBuilder: (context, index) {
+            final todo = box.getAt(index);
+            return Dismissible(
+              key: Key(box.getAt(index).toString()),
+              onDismissed: (direction) {
+                // Step 2
+                setState(() {
+                  TodoServices().deleteTodos(index);
+                });
+              },
+              background: Container(color: Colors.amberAccent),
+              child: ListTile(
+                title: Text(todo!.todoItem,
+                    style: todo!.isDone == true
+                        ? const TextStyle(
+                            decoration: TextDecoration.lineThrough)
+                        : const TextStyle(fontWeight: FontWeight.bold)),
+                leading: Checkbox(
+                  value: todo.isDone,
+                  onChanged: (value) {
+                    setState(() {
+                      TodoServices().updateTodos(index, todo);
+                    });
+                  },
+                ),
+              ),
+            );
+          },
+          separatorBuilder: (context, index) {
+            return const Divider(
+              height: 20.0,
+              color: Colors.amberAccent,
+            );
+          },
         );
       },
     );
@@ -85,11 +109,11 @@ class _TodoScreenState extends State<TodoScreen> {
                 child: const Text('Add'),
                 onPressed: () {
                   if (addTodoController.text.isNotEmpty) {
-                    final singleTodo = TodoMedel(
+                    final singleTodo = TodoModel(
                       todoItem: addTodoController.text,
                       isDone: false,
                       time: DateTime.now(),
-                    ).toMap();
+                    );
                     addingTodos(singleTodo);
                   }
                   Navigator.of(context).pop();
@@ -103,7 +127,7 @@ class _TodoScreenState extends State<TodoScreen> {
 
   void addingTodos(singleTodo) {
     setState(() {
-      todos.add(singleTodo);
+      TodoServices().addTodos(singleTodo);
     });
   }
 }
